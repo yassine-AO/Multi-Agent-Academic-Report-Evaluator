@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multi-agent-academic-report-evaluator"
+version = "0.1.0"
+description = "A LangGraph-powered multi-agent system that reads academic PFE reports, retrieves rubric-grounded context via RAG, and produces structured, justified evaluations through reviewer-critic deliberation."
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+authors = [
+    {name = "Developer", email = "developer@example.com"}
+]
+
+# Dependencies specified in requirements.txt
+dependencies = [
+    "langchain>=0.1.0",
+    "langgraph>=0.0.10",
+    "pydantic>=2.0.0",
+    "openai>=1.0.0",
+    "anthropic>=0.5.0",
+    "chromadb>=0.4.0",
+    "sentence-transformers>=2.2.0",
+    "pypdf>=3.0.0",
+    "python-docx>=0.8.0",
+    "beautifulsoup4>=4.12.0",
+    "python-dotenv>=1.0.0",
+    "tqdm>=4.65.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/Multi-Agent-Academic-Report-Evaluator"
+
+[project.scripts]
+multi-agent-evaluator = "src.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = [
+    "E203",  # Whitespace before ':' deprecated
+    "W503",  # Line break before binary operator
+]
+
+[tool.mypy]
+python-version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pyright]
+extraPaths = ["."]
