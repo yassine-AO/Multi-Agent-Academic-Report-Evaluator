@@ -8,16 +8,16 @@ from typing import Optional
 class Settings(BaseSettings):
     """Application settings."""
 
-    # API Keys
-    openai_api_key: Optional[str] = None
-    # Add other API keys as needed
+    # --- LLM ---
+    groq_api_key: str
+    llm_model_name: str = "llama-3.1-8b-instant"
 
     # Database/Storage paths
     chroma_db_path: str = "./chroma_db"
 
-    # Model configurations
-    embedding_model_name: str = "text-embedding-3-small"
-    llm_model_name: str = "gpt-4o-mini"
+    # --- Embeddings (Google AI Studio) ---
+    google_api_key: str
+    embedding_model_name: str = "models/embedding-001"
 
     # Processing limits
     max_chunk_size: int = 1000
