@@ -28,4 +28,4 @@ for i, node in enumerate(nodes):
 
 # Sanity checks
 assert len(nodes) >= 2, "Should split into at least 2 chunks"
-print("\n✅ Semantic chunking is working!")
+print("\n[OK] Semantic chunking is working!")

@@ -1,71 +1,78 @@
 """
-Workflow orchestrator using LangGraph to manage the agent pipeline.
+LangGraph workflow definition.
+Wires all agent nodes into a stateful, cyclic graph.
 """
 
-from typing import Dict, Any
 from langgraph.graph import StateGraph, END
-from .models.schemas import ProcessingState
-from .agents.input_processor import InputProcessorAgent
-from .agents.context_retriever import ContextRetrieverAgent
-from .agents.reviewer import ReviewerAgent
-from .agents.critic import CriticAgent
-from .agents.deliberation import DeliberationAgent
-from .agents.output_generator import OutputGeneratorAgent
-from .rag.retriever import Retriever
 
-class AgentWorkflow:
-    """Manages the workflow of agents using LangGraph."""
+from src.models.schemas import EvaluationState
+from src.agents import (
+    parser_node,
+    reviewer_node,
+    critic_node,
+    deliberation_node,
+    rapporteur_node,
+)
+from src.utils import get_logger
 
-    def __init__(self, retriever: Retriever):
-        self.retriever = retriever
-        self.workflow = self._build_workflow()
+logger = get_logger(__name__)
 
-    def _build_workflow(self) -> StateGraph:
-        """
-        Build the LangGraph workflow with all agents.
 
-        Returns:
-            Configured StateGraph workflow
-        """
-        # Initialize agents
-        input_processor = InputProcessorAgent()
-        context_retriever = ContextRetrieverAgent(self.retriever)
-        reviewer = ReviewerAgent()
-        critic = CriticAgent()
-        deliberator = DeliberationAgent()
-        output_generator = OutputGeneratorAgent()
+def build_evaluation_graph():
+    """
+    Build and compile the LangGraph evaluation workflow.
+    
+    Graph structure:
+        START → parser → reviewer → critic → deliberation
+                            ↑___________|
+                            (loop if not converged)
+        deliberation → rapporteur → END
+                            (if converged)
+    """
+    # Initialize graph with shared state type
+    workflow = StateGraph(EvaluationState)
+    
+    # Add nodes
+    workflow.add_node("parser", parser_node)
+    workflow.add_node("reviewer", reviewer_node)
+    workflow.add_node("critic", critic_node)
+    workflow.add_node("rapporteur", rapporteur_node)
+    
+    # Deliberation is not a node — it's a conditional edge function
+    # We don't add it as a node; we use it in add_conditional_edges
+    
+    # Define edges
+    workflow.set_entry_point("parser")
+    workflow.add_edge("parser", "reviewer")
+    workflow.add_edge("reviewer", "critic")
+    
+    # Conditional edge: critic → either reviewer (loop) or rapporteur (done)
+    workflow.add_conditional_edges(
+        "critic",
+        deliberation_node,  # Returns "reviewer" or "rapporteur"
+        {
+            "reviewer": "reviewer",      # Loop back
+            "rapporteur": "rapporteur",  # Proceed to final
+        }
+    )
+    
+    # Final edge
+    workflow.add_edge("rapporteur", END)
+    
+    # Compile
+    graph = workflow.compile()
+    logger.info("Evaluation graph compiled successfully")
+    
+    return graph
 
-        # Create workflow graph
-        workflow = StateGraph(ProcessingState)
 
-        # Add nodes for each agent
-        workflow.add_node("input_processor", input_processor.process)
-        workflow.add_node("context_retriever", context_retriever.process)
-        workflow.add_node("reviewer", reviewer.process)
-        workflow.add_node("critic", critic.process)
-        workflow.add_node("deliberator", deliberator.process)
-        workflow.add_node("output_generator", output_generator.process)
+# Singleton — compile once, reuse
+_compiled_graph = None
 
-        # Define the flow
-        workflow.set_entry_point("input_processor")
-        workflow.add_edge("input_processor", "context_retriever")
-        workflow.add_edge("context_retriever", "reviewer")
-        workflow.add_edge("reviewer", "critic")
-        workflow.add_edge("critic", "deliberator")
-        workflow.add_edge("deliberator", "output_generator")
-        workflow.add_edge("output_generator", END)
 
-        return workflow.compile()
-
-    def run(self, initial_state: ProcessingState) -> ProcessingState:
-        """
-        Run the workflow from initial state to completion.
-
-        Args:
-            initial_state: Initial processing state
-
-        Returns:
-            Final processing state
-        """
-        # Placeholder: Actual implementation would invoke the workflow
-        return self.workflow.invoke(initial_state)
+def get_graph():
+    """Get or create the compiled graph."""
+    global _compiled_graph
+    if _compiled_graph is None:
+        _compiled_graph = build_evaluation_graph()
+    return _compiled_graph

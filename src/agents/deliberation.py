@@ -1,32 +1,47 @@
 """
-Deliberation agent that facilitates reviewer-critic discussion to reach consensus.
+Deliberation / Convergence Check.
+Decides whether to loop back to Reviewer or proceed to Rapporteur.
 """
 
-from .base_agent import BaseAgent
-from ..models.schemas import ProcessingState, EvaluationOutput
+from src.config import settings
+from src.utils import get_logger, calculate_score_delta
 
-class DeliberationAgent(BaseAgent):
-    """Agent that facilitates reviewer-critic deliberation."""
+logger = get_logger(__name__)
 
-    def __init__(self):
-        super().__init__("Deliberation")
 
-    def process(self, state: ProcessingState) -> ProcessingState:
-        """
-        Facilitate deliberation between reviewer and critic to reach consensus.
-
-        Args:
-            state: Current processing state
-
-        Returns:
-            Updated processing state with final evaluation
-        """
-        # Placeholder: Implementation would integrate reviewer and critic feedback
-        # to produce a final, justified evaluation
-        if state.current_evaluation:
-            # Create final evaluation based on deliberation
-            final_evaluation = state.current_evaluation.copy()
-            # In real implementation, this would be updated based on deliberation
-            return self.update_state(state, current_evaluation=final_evaluation)
-        else:
-            return state
+def deliberation_node(state: dict) -> str:
+    """
+    LangGraph conditional edge: Check if scores have converged.
+    
+    Args:
+        state: EvaluationState with 'critic_report' and 'deliberation_count'.
+    
+    Returns:
+        "reviewer" to loop back, or "rapporteur" to finalize.
+    """
+    critic_report = state.get("critic_report", {})
+    deliberation_count = state.get("deliberation_count", 0)
+    
+    max_delta = critic_report.get("max_score_delta", 0.0)
+    
+    logger.info(
+        "Deliberation check",
+        extra={
+            "max_delta": max_delta,
+            "threshold": settings.convergence_threshold,
+            "deliberation_count": deliberation_count,
+            "max_loops": settings.max_deliberation_loops,
+        }
+    )
+    
+    import time
+    
+    # Convergence condition: delta small OR max loops reached
+    if max_delta > settings.convergence_threshold and deliberation_count < settings.max_deliberation_loops:
+        logger.info("Scores not converged -> loop back to reviewer")
+        time.sleep(5)  # Brief pause before loop-back
+        return "reviewer"
+    else:
+        logger.info("Scores converged -> proceed to rapporteur")
+        state["is_converged"] = True
+        return "rapporteur"

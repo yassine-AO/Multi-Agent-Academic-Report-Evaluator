@@ -17,4 +17,4 @@ print(f"\n=== Getting collection: {PAST_REPORTS_COLLECTION} ===")
 reports = get_or_create_collection(PAST_REPORTS_COLLECTION)
 print(f"Documents in past_reports: {reports.count()}")
 
-print("\n✅ ChromaDB client is alive and collections are ready!")
+print("\n[OK] ChromaDB client is alive and collections are ready!")
